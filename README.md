@@ -1,7 +1,7 @@
 # SNO-Wavelength
-Installing Single Node OpenShift (SNO) on AWS into a Wavelength Zone using the OpenShift Assisted-Installer.
+Installing Single Node OpenShift (SNO) on AWS into a Local Zone using the OpenShift Assisted-Installer.
  
-  REQUIREMENTS FOR INSTALLING ON A SINGLE NODE:  https://docs.openshift.com/container-platform/4.9/installing/installing_sno/install-sno-preparing-to-install-sno.html
+  REQUIREMENTS FOR INSTALLING ON A SINGLE NODE:  https://docs.openshift.com/container-platform/4.10/installing/installing_sno/install-sno-preparing-to-install-sno.html
 
 
 ## **PREREQUISITES:**
@@ -10,19 +10,10 @@ Single-Node OpenShift requires the following minimum host resources:
 - Memory: 32GB of RAM
 - Storage: 120 GB 
 
-r5.2xlarge
-- CPU: 8 vCPUs
-- Memory: 64GB
-
-g4dn.2xlarge
-- GPU: 1 NVIDIA T4 Tensor Core GPU
+m5.2xlarge
 - CPU: 8 vCPUs
 - Memory: 32GB
-- Storage: 225GB NVMe SSD
-
-AWS Wavelength supports the following instances types for edge workloads that meet the minimum SNO resource requirements:  
-- `r5.2xlarge` for applications that need cost effective general purpose compute.
-- `g4dn.2xlarge` for applications that need GPUs, such as game streaming and machine learning (ML) inference at the edge.
+- General Purpose SSD (gp2)
 
 You'll also need to install the AWS CLI. https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 
@@ -46,11 +37,11 @@ This script will execute the commands for Step 1 thru Step 5 below.
 
   ```bash
   export REGION="us-east-1"
-  export WL_ZONE="us-east-1-wl1-was-wlz-1"          #Boston Wavelength Zone
-  export NBG="us-east-1-wl1-was-wlz-1"
+  export LOCAL_ZONE="us-east-1-chi-1a"          #Chicago Local Zone
+  export NBG="us-east-1-chi-1a"
   export SNO_IMAGE_ID="ami-0ae9702360611e715"       #RHEL 8.4
   export BASTION_IMAGE_ID="ami-0ae9702360611e715"   #RHEL 8.4
-  export SNO_INSTANCE_TYPE=r5.2xlarge 
+  export SNO_INSTANCE_TYPE=m5.2xlarge 
   export BASTION_INSTANCE_TYPE=t3.medium 
   export KEY_NAME=pmf-key
    ```
@@ -61,8 +52,8 @@ Other variables that are created/used:
   $CAGW_ID
   $BASTION_SG_ID
   $SNO_SG_ID
-  $WL_SUBNET_ID
-  $WL_RT_ID
+  $LZ_SUBNET_ID
+  $LZ_RT_ID
   $BASTION_SUBNET_ID
   $BASTION_RT_ID
   $SNO_CIP_ALLOC_ID
@@ -158,27 +149,27 @@ In the following steps, you’ll create two subnets along with their associated 
 **a. Create the subnet for the Wavelength Zone.**
 
 ```bash
-export WL_SUBNET_ID=$(aws ec2 --region $REGION \
+export LZ_SUBNET_ID=$(aws ec2 --region $REGION \
 --output text create-subnet --cidr-block 10.0.0.0/24 \
---availability-zone $WL_ZONE --vpc-id $VPC_ID \
---query 'Subnet.SubnetId') && echo '\nWL_SUBNET_ID='$WL_SUBNET_ID
+--availability-zone $LOCAL_ZONE --vpc-id $VPC_ID \
+--query 'Subnet.SubnetId') && echo '\nLZ_SUBNET_ID='$LZ_SUBNET_ID
 ```
 
 **b. Create the route table for the Wavelength Zone subnet.**
 
 ```bash
-export WL_RT_ID=$(aws ec2 --region $REGION \
+export LZ_RT_ID=$(aws ec2 --region $REGION \
 --output text create-route-table --vpc-id $VPC_ID \
---query 'RouteTable.RouteTableId') && echo '\nWL_RT_ID='$WL_RT_ID
+--query 'RouteTable.RouteTableId') && echo '\nLZ_RT_ID='$LZ_RT_ID
 ```
 
 **c. Associate the route table with the Wavelength Zone subnet and a route to direct traffic to the carrier gateway which in turns routes traffic to the carrier mobile network.**
 
 ```bash
 aws ec2 --region $REGION  associate-route-table \
---route-table-id $WL_RT_ID  --subnet-id $WL_SUBNET_ID 
+--route-table-id $LZ_RT_ID  --subnet-id $LZ_SUBNET_ID 
 
-aws ec2 --region $REGION create-route  --route-table-id $WL_RT_ID \
+aws ec2 --region $REGION create-route  --route-table-id $LZ_RT_ID \
 --destination-cidr-block 0.0.0.0/0  --carrier-gateway-id $CAGW_ID
 ```
 
@@ -228,7 +219,7 @@ export SNO_CIP_ALLOC_ID=$(aws ec2 --region $REGION \
 
 ```bash
 export SNO_ENI_ID=$(aws ec2 --region $REGION \
---output text create-network-interface --subnet-id $WL_SUBNET_ID --groups $SNO_SG_ID \
+--output text create-network-interface --subnet-id $LZ_SUBNET_ID --groups $SNO_SG_ID \
 --query 'NetworkInterface.NetworkInterfaceId') && echo '\nSNO_ENI_ID='$SNO_ENI_ID
 ```
 
@@ -270,7 +261,7 @@ export SNO_INSTANCE_ID=$(aws ec2 --region $REGION  run-instances  --instance-typ
 Remember that the carrier gateway in a Wavelength Zone only allows ingress from the carrier’s 5G network. 
 This means that in order to SSH into the SNO server, you'll need to first SSH into the Bastion host, and then from there, SSH into your Wavelength SNO instance.
 
-The SNO server is a `r5.2xlarge` or `g4dn.2xlarge` instance; running RHEL 8.4 AMI.
+The SNO server is a `m5.2xlarge` instance; running RHEL 8.4 AMI.
 
 
 
