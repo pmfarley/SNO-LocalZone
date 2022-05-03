@@ -1,4 +1,4 @@
-# SNO-Wavelength
+# SNO-LocalZone
 Installing Single Node OpenShift (SNO) on AWS into a Local Zone using the OpenShift Assisted-Installer.
  
   REQUIREMENTS FOR INSTALLING ON A SINGLE NODE:  https://docs.openshift.com/container-platform/4.10/installing/installing_sno/install-sno-preparing-to-install-sno.html
