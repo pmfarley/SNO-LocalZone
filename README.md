@@ -172,7 +172,8 @@ You will be prompted for your Red Hat ID and password to login.
 
 **a. Select 'Create cluster'.**
 
- ![image](https://user-images.githubusercontent.com/48925593/140575947-b4f8e666-637c-451f-b797-d30feff712d3.png)
+ ![image](https://user-images.githubusercontent.com/48925593/166824453-61b32d61-fd75-451b-b0ba-234912e76f38.png)
+
 
 
 **b. Enter the cluster name, and the base domain; then select 'Install single node OpenShift (SNO)' and 'OpenShift 4.10.11', and click 'Next'.**
@@ -191,7 +192,8 @@ You will be prompted for your Red Hat ID and password to login.
 
 **d. Select 'Minimal Image File' and 'Generate Discovery ISO'.**
 
- ![image](https://user-images.githubusercontent.com/48925593/166823073-523d6931-3838-4105-bf86-10934248901c.png)
+![image](https://user-images.githubusercontent.com/48925593/166825485-2783d482-c14b-49c9-b64f-3763adac840b.png)
+
 
 
 **e. Click on the 'Copy to clipboard' icon to the right of the 'Command to download the ISO'.**
@@ -215,7 +217,7 @@ Then we'll add an entry to the grub configuration to allow it to boot from the i
 **a. SSH into the SNO instance.**
 
 ```bash
-ssh -i <your-sshkeyfile.pem> ec2user@<ip address>
+ssh -i <your-sshkeyfile.pem> ec2-user@<ip address>
 ```
 
 
