@@ -94,7 +94,7 @@ export SNO_SG_ID=$(aws ec2 --region $REGION \
 --query 'GroupId') && echo '\nSNO_SG_ID='$SNO_SG_ID
 
 aws ec2 --region $REGION authorize-security-group-ingress \
---group-id $SNO_SG_ID --protocol tcp --port 22 --source-group $BASTION_SG_ID
+--group-id $SNO_SG_ID --protocol tcp --port 22 --cidr 0.0.0.0/0
 
 aws ec2 --region $REGION authorize-security-group-ingress \
 --group-id $SNO_SG_ID --protocol tcp --port 6443 --cidr 0.0.0.0/0
@@ -120,7 +120,7 @@ In the following steps, you’ll create two subnets along with their associated 
 
 ```bash
 export LZ_SUBNET_ID=$(aws ec2 --region $REGION \
---output text create-subnet --cidr-block 10.0.1.0/24 --vpc-id $VPC_ID \
+--output text create-subnet --cidr-block 10.0.0.0/24 --vpc-id $VPC_ID \
 --query 'Subnet.SubnetId') && echo '\nLZ_SUBNET_ID='$LZ_SUBNET_ID
 ```
 
