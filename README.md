@@ -10,10 +10,11 @@ Single-Node OpenShift requires the following minimum host resources:
 - Memory: 32GB of RAM
 - Storage: 120 GB 
 
-m5.2xlarge
+r5d.2xlarge
 - CPU: 8 vCPUs
-- Memory: 32GB
+- Memory: 64GB
 - General Purpose SSD (gp2)
+- 1 x 300 NVMe SSD
 
 You'll also need to install the AWS CLI. https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 
@@ -49,9 +50,6 @@ Other variables that are created/used:
   $SNO_SG_ID
   $LZ_SUBNET_ID
   $LZ_RT_ID
-    $SNO_CIP_ALLOC_ID
-    $SNO_ENI_ID
-    $SNO_CIP_ASSOC_ID
   $SNO_INSTANCE_ID
    ```
 
@@ -120,7 +118,8 @@ In the following steps, you’ll create two subnets along with their associated 
 
 ```bash
 export LZ_SUBNET_ID=$(aws ec2 --region $REGION \
---output text create-subnet --cidr-block 10.0.0.0/24 --vpc-id $VPC_ID \
+--output text create-subnet --cidr-block 10.0.0.0/24 \
+--availability-zone $LOCAL_ZONE --vpc-id $VPC_ID \
 --query 'Subnet.SubnetId') && echo '\nLZ_SUBNET_ID='$LZ_SUBNET_ID
 ```
 
@@ -131,8 +130,9 @@ export LZ_RT_ID=$(aws ec2 --region $REGION \
 --output text create-route-table --vpc-id $VPC_ID \
 --query 'RouteTable.RouteTableId') && echo '\nLZ_RT_ID='$LZ_RT_ID 
 
-aws ec2 --region $REGION  associate-route-table --subnet-id $LZ_SUBNET_ID \
---route-table-id $LZ_RT_ID
+aws ec2 --region $REGION  associate-route-table \
+--subnet-id $LZ_SUBNET_ID --route-table-id $LZ_RT_ID \
+--output text --query 'AssociationId'
 
 aws ec2 --region $REGION  create-route --route-table-id $LZ_RT_ID \
 --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID
@@ -146,53 +146,26 @@ aws ec2 --region $REGION  modify-subnet-attribute \
 ```
 
 
-## **STEP 4. CREATE THE ELASTIC IPS AND NETWORKING INTERFACES:**
-
-The final step before deploying the actual instances is to create two carrier IPs, IP addresses associated with the carrier network. These IP addresses will be assigned to two Elastic Network Interfaces (ENIs), and the ENIs will be assigned to our SNO and Bootstrap server (the Bastion host will have its public IP assigned upon creation by the bastion subnet).
-
-**a. Create the carrier IP for the SNO server.**
-
-```bash
-export SNO_CIP_ALLOC_ID=$(aws ec2 --region $REGION \
---output text allocate-address --domain vpc --network-border-group $NBG \
---query 'AllocationId') && echo '\nSNO_CIP_ALLOC_ID='$SNO_CIP_ALLOC_ID
-```
-
-**b. Create the elastic network interfaces (ENIs).**
-
-```bash
-export SNO_ENI_ID=$(aws ec2 --region $REGION \
---output text create-network-interface --subnet-id $LZ_SUBNET_ID --groups $SNO_SG_ID \
---query 'NetworkInterface.NetworkInterfaceId') && echo '\nSNO_ENI_ID='$SNO_ENI_ID
-```
-
-**c. Associate the carrier IP with the ENIs.**
-
-```bash
-export SNO_CIP_ASSOC_ID=$(aws ec2 --region $REGION associate-address  \
---allocation-id $SNO_CIP_ALLOC_ID --network-interface-id $SNO_ENI_ID \
---output text --query 'AssociationId') \
-&& echo '\nSNO_CIP_ASSOC_ID='$SNO_CIP_ASSOC_ID
-```
-
-## **STEP 5. DEPLOY THE SNO EC2 INSTANCE:**
+## **STEP 4. DEPLOY THE SNO EC2 INSTANCE:**
 
 With the VPC and underlying networking and security deployed, you can now move on to deploying your SNO EC2 instance. 
 
-The SNO server is a `m5.2xlarge` instance; running RHEL 8.4 AMI.
+The SNO server is a `r5d.2xlarge` instance; running RHEL 8.4 AMI.
 
 **a. Deploy the SNO EC2 instance.**
 
 ```bash
 export SNO_INSTANCE_ID=$(aws ec2 --region $REGION run-instances  --instance-type $SNO_INSTANCE_TYPE \
 --associate-public-ip-address --subnet-id $LZ_SUBNET_ID --output text --query Instances[*].[InstanceId] \
---image-id $SNO_IMAGE_ID --security-group-ids $SNO_SG_ID --key-name $KEY_NAME) \
+--image-id $SNO_IMAGE_ID --security-group-ids $SNO_SG_ID --key-name $KEY_NAME \
+--block-device-mappings '[{"DeviceName": "/dev/sda1", "Ebs":{"VolumeSize": 120, "VolumeType": "gp2"}}]' \
+--tag-specifications 'ResourceType=instance,Tags=[{Key="kubernetes.io/cluster/ocp-lz-sno",Value=shared}]') \
 && echo '\nSNO_INSTANCE_ID='$SNO_INSTANCE_ID
 ```
 
 
 
-## **STEP 6. GENERATE DISCOVERY ISO FROM THE ASSISTED INSTALLER:**
+## **STEP 5. GENERATE DISCOVERY ISO FROM THE ASSISTED INSTALLER:**
 
 Open the OpenShift Assisted Installer website: https://console.redhat.com/openshift/assisted-installer/clusters/. 
 You will be prompted for your Red Hat ID and password to login.
@@ -229,7 +202,7 @@ This will be used in a later step from the SNO instance.
 **e. Click 'Close' to return to the previous screen.**
 
 
-## **STEP 7. BOOT THE SNO INSTANCE FROM THE DISCOVERY ISO:**
+## **STEP 6. BOOT THE SNO INSTANCE FROM THE DISCOVERY ISO:**
 
 AWS EC2 instances are NOT able to directly boot from an ISO image. So, we'll use the following steps to download the Discovery ISO image to the instance.
 Then we'll add an entry to the grub configuration to allow it to boot from the image. 
@@ -284,7 +257,7 @@ sudo reboot
 ```
 
 
-## **STEP 8. RETURN TO THE ASSISTED INSTALLER TO FINISH THE INSTALLATION:**
+## **STEP 7. RETURN TO THE ASSISTED INSTALLER TO FINISH THE INSTALLATION:**
 
 Return to the OpenShift Assisted Installer.
  
