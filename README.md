@@ -175,27 +175,31 @@ You will be prompted for your Red Hat ID and password to login.
  ![image](https://user-images.githubusercontent.com/48925593/140575947-b4f8e666-637c-451f-b797-d30feff712d3.png)
 
 
-**b. Enter the cluster name, and the base domain; then select 'Install single node OpenShift (SNO)' and 'OpenShift 4.9.4', and click 'Next'.**
+**b. Enter the cluster name, and the base domain; then select 'Install single node OpenShift (SNO)' and 'OpenShift 4.10.11', and click 'Next'.**
 
- ![image](https://user-images.githubusercontent.com/48925593/143304033-01bd05b8-71ad-4a9d-94e5-e9ee4b38e729.png)
+ ![image](https://user-images.githubusercontent.com/48925593/166822431-0f9fa187-9a2d-42a7-bc1b-071e7ef5af00.png)
 
 
 
-**c. Select 'Generate Discovery ISO'.**
 
- ![image](https://user-images.githubusercontent.com/48925593/143304631-df063601-d2a5-49d7-af05-db699fd9e01e.png)
+**c. Select 'Add host'.**
 
+ ![image](https://user-images.githubusercontent.com/48925593/166823688-1a8312a4-ad2e-4054-a658-72f1e268e8b4.png)
+
+
+ 
 
 **d. Select 'Minimal Image File' and 'Generate Discovery ISO'.**
 
- ![image](https://user-images.githubusercontent.com/48925593/140576887-3764d5fc-b271-4b7e-806a-f79ecde64be8.png)
+ ![image](https://user-images.githubusercontent.com/48925593/166823073-523d6931-3838-4105-bf86-10934248901c.png)
 
 
 **e. Click on the 'Copy to clipboard' icon to the right of the 'Command to download the ISO'.**
 
 This will be used in a later step from the SNO instance.
 
- ![image](https://user-images.githubusercontent.com/48925593/143304940-fe1e3bbc-31c5-4127-8a09-f6885be762e0.png)
+![image](https://user-images.githubusercontent.com/48925593/166824136-76cee7e8-ee98-4e19-9850-82098661d6a0.png)
+
 
 
 
