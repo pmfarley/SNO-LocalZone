@@ -38,28 +38,20 @@ This script will execute the commands for Step 1 thru Step 5 below.
   ```bash
   export REGION="us-east-1"
   export LOCAL_ZONE="us-east-1-chi-1a"          #Chicago Local Zone
-  export NBG="us-east-1-chi-1a"
   export SNO_IMAGE_ID="ami-0ae9702360611e715"       #RHEL 8.4
-  export BASTION_IMAGE_ID="ami-0ae9702360611e715"   #RHEL 8.4
   export SNO_INSTANCE_TYPE=m5.2xlarge 
-  export BASTION_INSTANCE_TYPE=t3.medium 
   export KEY_NAME=pmf-key
    ```
 Other variables that are created/used:
   ```bash
   $VPC_ID
   $IGW_ID
-  $CAGW_ID
-  $BASTION_SG_ID
   $SNO_SG_ID
   $LZ_SUBNET_ID
   $LZ_RT_ID
-  $BASTION_SUBNET_ID
-  $BASTION_RT_ID
-  $SNO_CIP_ALLOC_ID
-  $SNO_ENI_ID
-  $SNO_CIP_ASSOC_ID
-  $BASTION_INSTANCE_ID
+    $SNO_CIP_ALLOC_ID
+    $SNO_ENI_ID
+    $SNO_CIP_ASSOC_ID
   $SNO_INSTANCE_ID
    ```
 
@@ -83,39 +75,17 @@ aws ec2 --region $REGION  attach-internet-gateway \
  --vpc-id $VPC_ID  --internet-gateway-id $IGW_ID
 ```
 
-**d. Create the carrier gateway.**
 
-```bash
-export CAGW_ID=$(aws ec2 --region $REGION \
---output text create-carrier-gateway --vpc-id $VPC_ID \
---query 'CarrierGateway.CarrierGatewayId') && echo '\nCAGW_ID='$CAGW_ID
-```
+## **STEP 2. DEPLOY THE SECURITY GROUP:**
 
+In this section, you add one security group:
+- `SNO SG` allows SSH traffic and opens up ports (80, 443, 6443, 22623) and icmp from the Internet.
 
-## **STEP 2. DEPLOY THE SECURITY GROUPS:**
-
-In this section, you add two security groups:
-- `Bastion SG` allows SSH traffic from your local machine to the bastion host from the Internet
-- `SNO SG` allows SSH traffic from the Bastion SG and opens up ports (80, 443, 6443, 22623) and icmp.
-
-**a. Create the Bastion security group along with ingress rules.**
+**a. Create the SNO security group along with ingress rules.**
 
 Note: You can adjust the `–-cidr` parameter in the second command to restrict SSH access to only be allowed from your current IP address. 
 
-```bash
-export BASTION_SG_ID=$(aws ec2 --region $REGION \
---output text create-security-group --group-name bastion-sg \
---description "Security group for Bastion host" --vpc-id $VPC_ID \
---query 'GroupId') && echo '\nBASTION_SG_ID='$BASTION_SG_ID 
-
-aws ec2 --region $REGION  authorize-security-group-ingress \
---group-id $BASTION_SG_ID  --protocol tcp  --port 22  --cidr 0.0.0.0/0
-```
-   
-**b. Create the SNO security group along with ingress rules.**
-
-This allows SSH from the bastion security group, 
-and opening up other ports the SNO host communicates on (80, 443, 6443, 22623) and icmp.
+This allows SSH and opening up other ports the SNO host communicates on (80, 443, 6443, 22623) and icmp.
 
 ```bash
 export SNO_SG_ID=$(aws ec2 --region $REGION \
@@ -146,60 +116,33 @@ aws ec2 --region $REGION authorize-security-group-ingress \
 
 In the following steps, you’ll create two subnets along with their associated routing tables and routes.
 
-**a. Create the subnet for the Wavelength Zone.**
+**a. Create the subnet for the Local Zone.**
 
 ```bash
 export LZ_SUBNET_ID=$(aws ec2 --region $REGION \
---output text create-subnet --cidr-block 10.0.0.0/24 \
---availability-zone $LOCAL_ZONE --vpc-id $VPC_ID \
+--output text create-subnet --cidr-block 10.0.1.0/24 --vpc-id $VPC_ID \
 --query 'Subnet.SubnetId') && echo '\nLZ_SUBNET_ID='$LZ_SUBNET_ID
 ```
 
-**b. Create the route table for the Wavelength Zone subnet.**
+**e. Create the Local zone subnet route table and a route to direct traffic to the internet gateway.**
 
 ```bash
 export LZ_RT_ID=$(aws ec2 --region $REGION \
 --output text create-route-table --vpc-id $VPC_ID \
---query 'RouteTable.RouteTableId') && echo '\nLZ_RT_ID='$LZ_RT_ID
-```
+--query 'RouteTable.RouteTableId') && echo '\nLZ_RT_ID='$LZ_RT_ID 
 
-**c. Associate the route table with the Wavelength Zone subnet and a route to direct traffic to the carrier gateway which in turns routes traffic to the carrier mobile network.**
+aws ec2 --region $REGION  associate-route-table --subnet-id $LZ_SUBNET_ID \
+--route-table-id $LZ_RT_ID
 
-```bash
-aws ec2 --region $REGION  associate-route-table \
---route-table-id $LZ_RT_ID  --subnet-id $LZ_SUBNET_ID 
-
-aws ec2 --region $REGION create-route  --route-table-id $LZ_RT_ID \
---destination-cidr-block 0.0.0.0/0  --carrier-gateway-id $CAGW_ID
-```
-
-**d. Create the bastion subnet.**
-
-```bash
-export BASTION_SUBNET_ID=$(aws ec2 --region $REGION \
---output text create-subnet --cidr-block 10.0.1.0/24 --vpc-id $VPC_ID \
---query 'Subnet.SubnetId') && echo '\nBASTION_SUBNET_ID='$BASTION_SUBNET_ID
-```
-
-**e. Create the bastion subnet route table and a route to direct traffic to the internet gateway.**
-
-```bash
-export BASTION_RT_ID=$(aws ec2 --region $REGION \
---output text create-route-table --vpc-id $VPC_ID \
---query 'RouteTable.RouteTableId') && echo '\nBASTION_RT_ID='$BASTION_RT_ID 
-
-aws ec2 --region $REGION  associate-route-table --subnet-id $BASTION_SUBNET_ID \
---route-table-id $BASTION_RT_ID
-
-aws ec2 --region $REGION  create-route --route-table-id $BASTION_RT_ID \
+aws ec2 --region $REGION  create-route --route-table-id $LZ_RT_ID \
 --destination-cidr-block 0.0.0.0/0 --gateway-id $IGW_ID
 ```
 
-**f. Modify the bastion subnet to assign public IPs by default.**
+**f. Modify the local zone subnet to assign public IPs by default.**
 
 ```bash
 aws ec2 --region $REGION  modify-subnet-attribute \
---subnet-id $BASTION_SUBNET_ID  --map-public-ip-on-launch
+--subnet-id $LZ_SUBNET_ID  --map-public-ip-on-launch
 ```
 
 
@@ -232,37 +175,20 @@ export SNO_CIP_ASSOC_ID=$(aws ec2 --region $REGION associate-address  \
 && echo '\nSNO_CIP_ASSOC_ID='$SNO_CIP_ASSOC_ID
 ```
 
-## **STEP 5. DEPLOY THE SNO AND BASTION INSTANCES:**
+## **STEP 5. DEPLOY THE SNO EC2 INSTANCE:**
 
-With the VPC and underlying networking and security deployed, you can now move on to deploying your bastion and SNO instances. 
-
-The bastion server is a t3.medium instance; running RHEL 8.4 AMI. 
-
-**a. Deploy the BASTION instance.**
-
-```bash
-export BASTION_INSTANCE_ID=$(aws ec2 --region $REGION run-instances  --instance-type $BASTION_INSTANCE_TYPE \
---associate-public-ip-address --subnet-id $BASTION_SUBNET_ID --output text --query Instances[*].[InstanceId] \
---image-id $BASTION_IMAGE_ID --security-group-ids $BASTION_SG_ID --key-name $KEY_NAME) \
-&& echo '\nBASTION_INSTANCE_ID='$BASTION_INSTANCE_ID
-```
-
-**b. Deploy the SNO instance.**
-
-```bash
-export SNO_INSTANCE_ID=$(aws ec2 --region $REGION  run-instances  --instance-type $SNO_INSTANCE_TYPE \
---network-interface '[{"DeviceIndex":0,"NetworkInterfaceId":"'$SNO_ENI_ID'"}]' \
---image-id $SNO_IMAGE_ID --key-name $KEY_NAME --output text --query Instances[*].[InstanceId] \
---block-device-mappings '[{"DeviceName": "/dev/sda1", "Ebs":{"VolumeSize": 120, "VolumeType": "gp2"}}]' \
---tag-specifications 'ResourceType=instance,Tags=[{Key="kubernetes.io/cluster/wavelength-sno",Value=shared}]') \
-&& echo '\nSNO_INSTANCE_ID='$SNO_INSTANCE_ID
-```
-
-Remember that the carrier gateway in a Wavelength Zone only allows ingress from the carrier’s 5G network. 
-This means that in order to SSH into the SNO server, you'll need to first SSH into the Bastion host, and then from there, SSH into your Wavelength SNO instance.
+With the VPC and underlying networking and security deployed, you can now move on to deploying your SNO EC2 instance. 
 
 The SNO server is a `m5.2xlarge` instance; running RHEL 8.4 AMI.
 
+**a. Deploy the SNO EC2 instance.**
+
+```bash
+export SNO_INSTANCE_ID=$(aws ec2 --region $REGION run-instances  --instance-type $SNO_INSTANCE_TYPE \
+--associate-public-ip-address --subnet-id $LZ_SUBNET_ID --output text --query Instances[*].[InstanceId] \
+--image-id $SNO_IMAGE_ID --security-group-ids $SNO_SG_ID --key-name $KEY_NAME) \
+&& echo '\nSNO_INSTANCE_ID='$SNO_INSTANCE_ID
+```
 
 
 
