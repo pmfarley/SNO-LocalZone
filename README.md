@@ -27,7 +27,7 @@ Then to run the script with the following command:
  . ./deploySNOonAWS.sh
  ```
 
-This script will execute the commands for Step 1 thru Step 5 below.  
+This script will execute the commands for Step 1 thru Step 4 below.  
 
 
 ## **STEP 1. CREATE THE VPC AND ASSOCIATED RESOURCES:**
